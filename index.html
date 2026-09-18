@@ -1,0 +1,690 @@
+// ===== Supabase 配置 =====
+const SUPABASE_URL = '你的项目URL';
+const SUPABASE_ANON_KEY = '你的anon key';
+let supabaseClient = null;
+
+// 动态加载 supabase-js（因为你的页面没有 npm 构建步骤）
+const supabaseScript = document.createElement('script');
+supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+supabaseScript.onload = () => {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+};
+document.head.appendChild(supabaseScript);
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天平上的火焰 · 拉瓦锡与燃烧之谜</title>
+<style>
+  :root{
+    --ink:#26221a; --paper:#f7f1e3; --gold:#b08a2e; --deep:#274156;
+    --accent:#7a4a1f; --card:#fffdf7; --line:#d9cba6; --good:#2e7d32; --bad:#c62828;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Songti SC","STSong","SimSun",Georgia,serif;
+    background:linear-gradient(160deg,#274156 0%,#1b3040 55%,#12222e 100%);
+    min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+    padding:24px;color:var(--ink);
+  }
+  .book{
+    width:min(880px,100%);background:var(--paper);border-radius:14px;
+    box-shadow:0 24px 60px rgba(0,0,0,.45), inset 0 0 80px rgba(176,138,46,.07);
+    border:1px solid var(--line);overflow:hidden;margin-bottom:40px;
+  }
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding:13px 26px;border-bottom:1px solid var(--line);
+    background:rgba(176,138,46,.07);font-size:13.5px;letter-spacing:.1em;color:var(--accent);flex-wrap:wrap;}
+  .progress{height:5px;background:#e8dec2;}
+  .progress>div{height:100%;background:linear-gradient(90deg,var(--gold),#d3b25a);width:0;transition:width .4s;}
+  .page{padding:42px 46px 34px;min-height:470px;display:none;animation:fade .5s ease;}
+  .page.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .kicker{font-size:12.5px;letter-spacing:.3em;color:var(--gold);margin-bottom:10px;}
+  h1{font-size:42px;line-height:1.25;color:var(--deep);margin:8px 0 6px;}
+  h2{font-size:27px;color:var(--deep);margin-bottom:16px;}
+  .scene{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:22px 26px;margin:18px 0;position:relative;}
+  .scene::before{content:"❝";position:absolute;top:-14px;left:18px;font-size:32px;color:var(--gold);}
+  .scene p{font-size:16.5px;line-height:2;margin-bottom:10px;}
+  .scene p:last-child{margin-bottom:0}
+  .caption{font-size:12.5px;color:#8a7a55;font-style:italic;margin-top:10px;}
+  .art{text-align:center;font-size:56px;line-height:1.5;padding:22px 0 6px;filter:sepia(.35);}
+  .nav{display:flex;justify-content:space-between;align-items:center;padding:16px 26px 22px;border-top:1px solid var(--line);}
+  button.btn{font-family:inherit;font-size:15.5px;letter-spacing:.15em;cursor:pointer;
+    padding:10px 28px;border-radius:999px;border:1px solid var(--gold);
+    background:linear-gradient(180deg,#d3b25a,var(--gold));color:#fff;
+    box-shadow:0 4px 12px rgba(176,138,46,.35);transition:transform .15s;}
+  button.btn:hover:not(:disabled){transform:translateY(-2px)}
+  button.btn.ghost{background:transparent;color:var(--accent);box-shadow:none;}
+  button.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+  .quiz{border:2px solid var(--deep);border-radius:12px;padding:22px 24px;margin:16px 0;background:#eff4f9;}
+  .quiz .qtag{display:inline-block;background:var(--deep);color:#fff;font-size:12.5px;letter-spacing:.2em;padding:4px 14px;border-radius:999px;margin-bottom:12px;}
+  .quiz h3{font-size:19px;color:var(--deep);margin-bottom:14px;line-height:1.7;}
+  .opt{display:block;width:100%;text-align:left;font-family:inherit;font-size:15.5px;line-height:1.7;
+    background:#fff;border:1px solid #b9c6d6;border-radius:8px;padding:12px 17px;margin-bottom:9px;
+    cursor:pointer;transition:all .15s;color:var(--ink);}
+  .opt:hover:not(:disabled){border-color:var(--deep);background:#eaf0f7;transform:translateX(4px)}
+  .opt.correct{border-color:var(--good);background:#e8f5e9;animation:pop .35s;}
+  .opt.wrong{border-color:var(--bad);background:#fdecea;animation:shake .4s;}
+  @keyframes pop{50%{transform:scale(1.02)}}
+  @keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .opt:disabled{cursor:default}
+  .wrongNote{display:none;margin:4px 0 10px;background:#fdecea;border-left:4px solid var(--bad);
+    padding:12px 16px;border-radius:0 8px 8px 0;font-size:14.5px;line-height:1.9;}
+  .wrongNote.show{display:block;animation:fade .3s}
+  .explain{display:none;margin-top:14px;background:#fff;border-left:4px solid var(--gold);
+    padding:15px 19px;border-radius:0 8px 8px 0;font-size:15px;line-height:1.95;}
+  .explain.show{display:block;animation:fade .4s}
+  .explain b{color:var(--accent)}
+  .clue{display:none;margin-top:12px;background:#fdf6e3;border:1px dashed var(--gold);
+    border-radius:8px;padding:11px 17px;font-size:14.5px;color:var(--accent);}
+  .clue.show{display:block;animation:fade .4s}
+  .hintBtn{font-family:inherit;font-size:13.5px;background:transparent;border:1px dashed var(--deep);
+    color:var(--deep);border-radius:999px;padding:6px 16px;cursor:pointer;margin-bottom:10px;}
+  .hintText{display:none;font-size:14px;line-height:1.9;background:#eef3e8;border:1px solid #9ab87a;
+    border-radius:8px;padding:10px 15px;margin-bottom:10px;color:#3d5a2a;}
+  .hintText.show{display:block;animation:fade .3s}
+  .cols{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0;}
+  .mini{flex:1;min-width:180px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:15px;text-align:center;}
+  .mini .big{font-size:30px;margin-bottom:6px;}
+  .mini p{font-size:14px;line-height:1.8;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px 24px;margin:16px 0;}
+  .panel p{font-size:15.5px;line-height:2;}
+  table.score{width:100%;border-collapse:collapse;margin:12px 0;font-size:14.5px;}
+  table.score th,table.score td{border:1px solid var(--line);padding:9px 12px;text-align:left;}
+  table.score th{background:rgba(176,138,46,.12);}
+  .grade{font-size:60px;color:var(--deep);text-align:center;font-weight:700;margin:8px 0;}
+  textarea,input.nick{font-family:inherit;font-size:15px;width:100%;border:1px solid var(--line);
+    border-radius:8px;padding:10px 14px;background:#fff;color:var(--ink);margin-bottom:10px;}
+  textarea{min-height:90px;resize:vertical;}
+  .msg{border-bottom:1px dashed var(--line);padding:10px 2px;font-size:14.5px;line-height:1.8;}
+  .msg b{color:var(--accent)}
+  .msg .t{color:#8a7a55;font-size:12px;}
+  .foot{font-size:12px;color:#8a7a55;text-align:center;padding:0 26px 16px;line-height:1.8;}
+  .tog{display:inline-block;font-size:13px;color:var(--deep);border-bottom:1px dashed var(--deep);cursor:pointer;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="book">
+  <div class="topbar">
+    <span>天平上的火焰</span>
+    <span id="saveNote">进度保存在本机浏览器</span>
+    <span id="pageNo">第 1 / 25 页</span>
+  </div>
+  <div class="progress"><div id="bar"></div></div>
+
+  <!-- 1 封面 -->
+  <section class="page active">
+    <div class="kicker">化学 × 精密测量 · 科学推理故事</div>
+    <h1>天平上的火焰</h1>
+    <p style="font-size:16.5px;color:var(--accent);letter-spacing:.2em;margin-bottom:18px;">—— 拉瓦锡与燃烧之谜</p>
+    <div class="art">⚖️🔥🧪</div>
+    <div class="scene">
+      <p>火焰吞噬木头，金属在火中变重，蜡烛在密闭罩中熄灭——十八世纪的化学家以为自己早已理解这一切。直到一台精确的天平，撬动了一整个旧世界。</p>
+      <p>全篇 25 个图文短页，6 处推理。每页只推进一件事；在转折处，请根据当时掌握的证据选出最佳答案。答错会出现提示与所选选项的解析，可重新作答；答对后给出完整解析，关键追问将收入线索本。</p>
+      <p class="caption">故事依据原论文与同期记录写成；场景串联经过文学处理，不冒称历史人物逐字对白。</p>
+    </div>
+  </section>
+
+  <!-- 2 关卡信息 -->
+  <section class="page">
+    <div class="kicker">本关信息</div>
+    <h2>开始之前</h2>
+    <table class="score">
+      <tr><th>涉及领域</th><td>化学、精密测量</td></tr>
+      <tr><th>核心能力</th><td>追查异常 · 设计对照 · 用反例检验模型</td></tr>
+      <tr><th>难度</th><td>2 / 5 · 基础</td></tr>
+      <tr><th>预计时长</th><td>20–25 分钟（不计入成绩）</td></tr>
+    </table>
+    <div class="panel">
+      <p><strong>计分方式：</strong>每题等权。首次独立答对计 100%，纠错后答对计 60%，使用提示后答对计 30%。最终取 6 题平均分并四舍五入。阅读速度不计分。</p>
+      <p><strong>成绩与留言：</strong>通关后显示百分制成绩与评价，可自愿填写昵称与评论。本单机版将记录保存在你的浏览器中；正式的公开排行榜经由 GitHub Issues 投稿生成。</p>
+    </div>
+  </section>
+
+  <!-- 3 序章 -->
+  <section class="page">
+    <div class="kicker">序章</div>
+    <h2>1772 年，巴黎</h2>
+    <div class="art">🕯️🏙️</div>
+    <div class="scene">
+      <p>皇家科学院的实验室里，年轻的税务官兼化学家安托万·拉瓦锡盯着一封刚密封寄存的备忘录——那是他写给科学院的"秘密备案"：燃烧磷之后，生成的白色粉末<strong>比原来的磷更重</strong>。</p>
+      <p>多出来的重量，是从哪里来的？</p>
+      <p class="caption">拉瓦锡 1772 年 11 月将密封备忘录交存科学院，以确立发现的优先权。</p>
+    </div>
+  </section>
+
+  <!-- 4 燃素说 -->
+  <section class="page">
+    <div class="kicker">第一章 · 旧理论</div>
+    <h2>人人相信的"燃素"</h2>
+    <div class="art">📜🔥</div>
+    <div class="scene">
+      <p>当时的标准解释叫作<strong>燃素说</strong>：可燃物中富含一种名为"燃素"的物质，燃烧就是燃素逸出、逃进空气。木头烧成灰，是燃素跑光了；火焰跳动，是燃素在逃离。</p>
+      <p>这套说法流传了近百年，写进每一本教科书。它解释了许多现象——直到有人认真称了称燃烧前后的重量。</p>
+      <p class="caption">燃素说由贝歇尔提出、施塔尔系统化，是 18 世纪化学的主流框架。</p>
+    </div>
+  </section>
+
+  <!-- 5 问题1 -->
+  <section class="page">
+    <div class="kicker">推理 · 第一问</div>
+    <h2>变重的灰烬</h2>
+    <div class="quiz" data-q="1" data-answer="c" data-clue="线索一：金属煅烧后变重——按燃素说'失去燃素'应变轻，事实相反，旧理论出现裂缝。">
+      <span class="qtag">问题 1 / 6</span>
+      <h3>实验反复确认：锡、铅等金属煅烧成灰（煅灰）后，<strong>重量增加</strong>。按燃素说，燃烧是"失去燃素"。这一事实首先说明什么？</h3>
+      <button class="opt" data-k="a">A. 天平还不够精确，增重只是误差</button>
+      <button class="opt" data-k="b">B. 燃素说依然正确，燃素一定有"负的重量"</button>
+      <button class="opt" data-k="c">C. 燃烧中物质不但没有单纯减少，反而从某处获得了东西——旧解释面临反例</button>
+      <button class="opt" data-k="d">D. 金属里本来藏着看不见的土，受热显形</button>
+      <button class="hintBtn" type="button">💡 看提示（本题得分降为 30%）</button>
+      <div class="hintText">提示：判断一个理论是否遇到麻烦，标准是它预测的方向与测量结果是否一致。"失去某物"预测变轻，测量却显示变重。</div>
+      <div class="wrongNote"></div>
+      <div class="explain">
+        <b>解析：</b>多次独立重复排除了偶然误差（A 错）；给燃素假设"负重量"只是为旧理论打补丁，且无人能称出负的燃素（B 错）；"隐藏的土"没有可检验的出处（D 错）。增重是一个方向的反转：燃素说预测变轻，事实却是变重。严谨的回应不是修补名词，而是追问——<strong>增重的部分从哪里来？</strong>
+      </div>
+      <div class="clue">✦ 新线索已收入线索本：<strong>煅烧增重：燃烧伴随着"获得"而非单纯"失去"</strong></div>
+    </div>
+  </section>
+
+  <!-- 6 天平 -->
+  <section class="page">
+    <div class="kicker">第一章 · 工具</div>
+    <h2>一台不肯含糊的天平</h2>
+    <div class="art">⚖️</div>
+    <div class="scene">
+      <p>拉瓦锡的天平能分辨一毫克的差别。他的信念也刻在天平上：<strong>物质不生不灭</strong>——反应前后，总账必须做平。他用精确的称量，把化学从"描述变化"变成"核对称量"。</p>
+      <p>"在每一次操作中，"他在笔记里写道，"必须假定实验前后物质的总量相等。"这就是后来所称的<strong>质量守恒定律</strong>。</p>
+      <p class="caption">拉瓦锡 1789 年《化学基础论》明确表述该原理；其天平读数留存于实验笔记。</p>
+    </div>
+  </section>
+
+  <!-- 7 问题2 -->
+  <section class="page">
+    <div class="kicker">推理 · 第二问</div>
+    <h2>怎样堵住"来路不明"？</h2>
+    <div class="quiz" data-q="2" data-answer="b" data-clue="线索二：密闭容器中煅烧，总质量不变——增重的来源只能在容器之内，即从空气中取得。">
+      <span class="qtag">问题 2 / 6</span>
+      <h3>要查明金属增重"多出来的东西"来自哪里，拉瓦锡最需要哪种实验安排？</h3>
+      <button class="opt" data-k="a">A. 在敞口盘子里烧，烧完立刻称煅灰，多烧几种金属</button>
+      <button class="opt" data-k="b">B. 把金属与空气一起封进密闭容器，先称总重，加热后再称总重，并观察内部变化</button>
+      <button class="opt" data-k="c">C. 请三位著名化学家分别目测煅灰的颜色</button>
+      <button class="opt" data-k="d">D. 把煅灰溶进酸里，尝一尝味道是否变化</button>
+      <button class="hintBtn" type="button">💡 看提示（本题得分降为 30%）</button>
+      <div class="hintText">提示：如果怀疑"多出来的东西"可能来自空气，就必须让空气也进入称量范围——否则它进出了天平，账永远做不平。</div>
+      <div class="wrongNote"></div>
+      <div class="explain">
+        <b>解析：</b>敞口称量漏掉了最大的嫌疑对象——空气本身（A 错）；目测与口味既不可定量也不安全（C、D 错）。密闭容器让"金属＋空气"成为一笔完整的账：<strong>若总重不变而金属变重，则空气必然失去了等重的某部分</strong>。这正是拉瓦锡 1774 年锡实验的设计。一次只改变一个条件、把一切纳入称量，是好实验的样子。
+      </div>
+      <div class="clue">✦ 新线索已收入线索本：<strong>密闭称量：把一切反应物纳入天平</strong></div>
+    </div>
+  </section>
+
+  <!-- 8 锡实验 -->
+  <section class="page">
+    <div class="kicker">第二章 · 密闭实验</div>
+    <h2>玻璃瓶里的锡</h2>
+    <div class="art">🫙🔥</div>
+    <div class="scene">
+      <p>锡块被封入玻璃曲颈瓶，连同瓶内空气一起称重，记录总质量。随后用透镜聚焦阳光加热数日，锡的表面渐渐蒙上灰色煅灰。</p>
+      <p>冷却后重新称量整个瓶子——<strong>总质量与加热前完全相同</strong>。而瓶内的锡，变重了。</p>
+      <p class="caption">教学示例图，读数为示意；原实验记录见拉瓦锡实验笔记。</p>
+    </div>
+  </section>
+
+  <!-- 9 问题3 -->
+  <section class="page">
+    <div class="kicker">推理 · 第三问</div>
+    <h2>总重不变，锡却变重</h2>
+    <div class="quiz" data-q="3" data-answer="d" data-clue="线索三：开瓶瞬间空气涌入——瓶内空气被消耗了一部分，形成部分真空。">
+      <span class="qtag">问题 3 / 6</span>
+      <h3>密闭瓶总重不变、瓶内锡变重。结合线索一、二，最直接的推论是？</h3>
+      <button class="opt" data-k="a">A. 玻璃受热渗进了锡里</button>
+      <button class="opt" data-k="b">B. 热的"火粒子"穿过玻璃，被锡吸收</button>
+      <button class="opt" data-k="c">C. 称量顺序导致系统误差</button>
+      <button class="opt" data-k="d">D. 瓶内空气的一部分与锡结合了；因此开瓶时应有空气涌入补齐</button>
+      <button class="hintBtn" type="button">💡 看提示（本题得分降为 30%）</button>
+      <div class="hintText">提示：总账是平的，但内部发生了转移。锡增加的重量只能来自瓶内唯一的他者——空气。若空气少了一块，开瓶的瞬间会发生什么？</div>
+      <div class="wrongNote"></div>
+      <div class="explain">
+        <b>解析：</b>密闭体系总重不变，意味着没有物质穿越玻璃瓶进出——玻璃渗入、火粒子穿壁都被总重不变排除（A、B 错）；重复称量排除误差（C 错）。锡的增重只能来自瓶内空气。这还给出可检验的预测：<strong>开封瞬间，外部空气应呼啸涌入</strong>——拉瓦锡观察到的正是如此。好推理不只是解释过去，还要预言下一次观察。
+      </div>
+      <div class="clue">✦ 新线索已收入线索本：<strong>空气被"用掉"了一部分，且可检验</strong></div>
+    </div>
+  </section>
+
+  <!-- 10 汞实验 -->
+  <section class="page">
+    <div class="kicker">第二章 · 追踪那部分空气</div>
+    <h2>十二天的汞</h2>
+    <div class="art">🌡️🔴</div>
+    <div class="scene">
+      <p>1774–1775 年，拉瓦锡把汞封在曲颈瓶中，瓶口通到水银槽上的空气钟罩下，持续加热十二天。银亮的汞面上浮起<strong>红色粉末</strong>（汞灰），钟罩内的空气体积减少了约五分之一，且不再变化。</p>
+      <p>剩下的五分之四气体让蜡烛熄灭、小鼠窒息。而被"用掉"的那五分之一，藏进了红色粉末里。</p>
+      <p class="caption">此即著名的"十二天实验"；空气约 1/5 被消耗为其原始读数。</p>
+    </div>
+  </section>
+
+  <!-- 11 问题4 -->
+  <section class="page">
+    <div class="kicker">推理 · 第四问</div>
+    <h2>把红色粉末"还原"回去</h2>
+    <div class="quiz" data-q="4" data-answer="a" data-clue="线索四：强热汞灰放出气体，体积恰等于此前空气减少的部分——同一物质可进可出，反应可逆。">
+      <span class="qtag">问题 4 / 6</span>
+      <h3>拉瓦锡把红色汞灰单独强热，收集放出的气体。若线索三成立（汞与空气中某成分结合），这个实验最令人期待的检验点是什么？</h3>
+      <button class="opt" data-k="a">A. 放出气体的体积，应恰好等于十二天里钟罩内空气减少的体积；汞应恢复原有重量</button>
+      <button class="opt" data-k="b">B. 放出气体应是燃素的纯形态，看它能否点燃</button>
+      <button class="opt" data-k="c">C. 粉末应当变得更重，因为加热会增添火粒子</button>
+      <button class="opt" data-k="d">D. 只需观察粉末颜色是否由红变银</button>
+      <button class="hintBtn" type="button">💡 看提示（本题得分降为 30%）</button>
+      <div class="hintText">提示：如果"结合"是真的，那么拆开时就应原数奉还——体积对得上、重量对得上，账才算平。</div>
+      <div class="wrongNote"></div>
+      <div class="explain">
+        <b>解析：</b>定量理论的标志是"来去两笔账必须相等"。拉瓦锡实测：强热汞灰放出气体的体积与先前空气减少量相符，汞的质量复原。B 仍站在燃素说里找答案；C 违背总账守恒；D 只是定性外观，放弃了两笔账对质的最佳机会。<strong>可逆且等量的收放</strong>，把"空气的一部分被结合"从猜想升级为证据。
+      </div>
+      <div class="clue">✦ 新线索已收入线索本：<strong>体积与质量双双复原：结合是真实、可逆的</strong></div>
+    </div>
+  </section>
+
+  <!-- 12 活空气 -->
+  <section class="page">
+    <div class="kicker">第三章 · 命名</div>
+    <h2>"最适于呼吸的空气"</h2>
+    <div class="art">🐭🕯️</div>
+    <div class="scene">
+      <p>从红色粉末里放出的那部分气体，性质与剩余空气截然相反：蜡烛在其中燃得格外明亮，小鼠在其中活得格外精神。拉瓦锡先称它"高度可呼吸的空气"，后来为它造了新名字——<strong>氧（oxygen）</strong>。</p>
+      <p>另一边，剩余的五分之四既不能助燃也不能维生，他称之为"浊气"（后称氮）。空气不是单一的元素，而是混合物。</p>
+      <p class="caption">氧的分离此前由舍勒、普利斯特里独立完成；普利斯特里 1774 年访巴黎时向拉瓦锡讲述了红色汞灰实验。</p>
+    </div>
+  </section>
+
+  <!-- 13 问题5 -->
+  <section class="page">
+    <div class="kicker">推理 · 第五问</div>
+    <h2>给燃烧写一个新定义</h2>
+    <div class="quiz" data-q="5" data-answer="b" data-clue="线索五：燃烧 = 物质与氧结合——增重即结合的氧的重量；燃尽即氧被耗尽或与氧隔绝。">
+      <span class="qtag">问题 5 / 6</span>
+      <h3>综合全部线索：金属煅烧增重、密闭瓶空气被耗去五分之一、汞灰放气可复原、该气体助燃助呼吸。燃烧最准确的新表述是？</h3>
+      <button class="opt" data-k="a">A. 燃烧是燃素逸出，氧负责把燃素"吸走"</button>
+      <button class="opt" data-k="b">B. 燃烧是物质与氧化合的过程；增加的重量等于结合的氧的重量</button>
+      <button class="opt" data-k="c">C. 燃烧是物质释放热量时把空气推开</button>
+      <button class="opt" data-k="d">D. 燃烧没有统一本质，每种金属各有一套机理</button>
+      <button class="hintBtn" type="button">💡 看提示（本题得分降为 30%）</button>
+      <div class="hintText">提示：新定义必须同时解释三件事——增重的来源、空气体积的减少、以及密闭罩中火焰为何熄灭。</div>
+      <div class="wrongNote"></div>
+      <div class="explain">
+        <b>解析：</b>"与氧化合"一个假设同时收编全部证据：增重＝氧的重量（解释线索一、三、四），密闭罩中氧耗尽则火灭（解释烛灭与鼠窒），账户处处平衡。A 给燃素保留了位置，却解释不了为何需要氧在场且增重恰等于氧重——是多余的补丁；C、D 放弃了定量解释。1777 年起，拉瓦锡以此向燃素说发起系统总攻，史称<strong>化学革命</strong>。
+      </div>
+      <div class="clue">✦ 新线索已收入线索本：<strong>氧化学说：燃烧＝与氧化合</strong></div>
+    </div>
+  </section>
+
+  <!-- 14 反扑 -->
+  <section class="page">
+    <div class="kicker">第三章 · 旧理论的反击</div>
+    <h2>燃素派的最后一道防线</h2>
+    <div class="art">🛡️📉</div>
+    <div class="scene">
+      <p>旧理论不会自动退场。燃素派回应："金属失去燃素，获得'精气'；燃素具有负重力，所以失去它反而变重！"</p>
+      <p>还有人做实验：把铁屑溶进酸里，放出可燃气体（氢气），便宣布"这就是从金属里逸出的燃素"。新理论必须接住这两招。</p>
+      <p class="caption">"负重量的燃素"与"氢即燃素"均为 18 世纪末真实出现过的辩护策略。</p>
+    </div>
+  </section>
+
+  <!-- 15 问题6 -->
+  <section class="page">
+    <div class="kicker">推理 · 第六问</div>
+    <h2>致命的一击在哪里</h2>
+    <div class="quiz" data-q="6" data-answer="d" data-clue="线索六：金属＋酸＋氢气＋煅灰的全程称量处处平衡，全程不需要燃素——旧假设成为多余。">
+      <span class="qtag">问题 6 / 6</span>
+      <h3>要判定燃素说应当退场，下列哪类证据最有决定性？</h3>
+      <button class="opt" data-k="a">A. 写一篇措辞雄辩的论文，指出燃素说违背自然哲学</button>
+      <button class="opt" data-k="b">B. 统计有多少院士投票支持氧化学说</button>
+      <button class="opt" data-k="c">C. 证明燃素派某次实验操作不规范</button>
+      <button class="opt" data-k="d">D. 对反应物与全部产物做全程精密称量：若有燃素进出，账上必有缺口；若处处平衡，则燃素无处可藏</button>
+      <button class="hintBtn" type="button">💡 看提示（本题得分降为 30%）</button>
+      <div class="hintText">提示：一个"有重量"（哪怕是负重量）的东西，理论上必定能被天平察觉。让天平当裁判：它若存在，账做不平；账若处处平，它就是多余的名词。</div>
+      <div class="wrongNote"></div>
+      <div class="explain">
+        <b>解析：</b>科学争论的裁判不是修辞、人数或对手的一次失误（A、B、C 皆非判决性），而是判决性实验。拉瓦锡的路线正是如此：称金属、称酸、称盐、称收集到的氢气，总量严丝合缝；氢气来自酸而非金属，水还能合成再分解。燃素若想存在，就必须在账上留下缺口——<strong>没有缺口，就没有燃素</strong>。1789 年《化学基础论》出版，元素表上第一次没有燃素的位置。
+      </div>
+      <div class="clue">✦ 新线索已收入线索本：<strong>质量守恒判决：燃素无处可藏</strong></div>
+    </div>
+  </section>
+
+  <!-- 16 余波 -->
+  <section class="page">
+    <div class="kicker">第三章 · 新的化学</div>
+    <h2>一本教科书，一个新世界</h2>
+    <div class="art">📖🧾</div>
+    <div class="scene">
+      <p>1789 年，《化学基础论》出版：质量守恒作为原理写在卷首；33 种"简单物质"列成最早的元素表；新命名法（氧、氢、氮、酸、盐）替换了炼金术的旧词汇。</p>
+      <p>化学从此成为一门定量的科学。后人称拉瓦锡为"近代化学之父"——他的武器不是更旺的火，而是更准的秤。</p>
+    </div>
+  </section>
+
+  <!-- 17 方法回顾 -->
+  <section class="page">
+    <div class="kicker">回望</div>
+    <h2>这场革命用了什么方法</h2>
+    <div class="cols">
+      <div class="mini"><div class="big">⚖️</div><p><strong>精密测量</strong><br>让一毫米的异常开口说话</p></div>
+      <div class="mini"><div class="big">🫙</div><p><strong>密闭对照</strong><br>把一切反应物纳入称量范围</p></div>
+      <div class="mini"><div class="big">🔮</div><p><strong>先预测后验证</strong><br>预言"开瓶空气涌入"，再观察</p></div>
+      <div class="mini"><div class="big">🗡️</div><p><strong>判决性检验</strong><br>让守恒的账目裁判理论去留</p></div>
+    </div>
+    <div class="scene">
+      <p>理论被推翻，不是因为它不够优雅，而是因为账做不平。科学的进步，常从一次不肯放过的"多出来的重量"开始。</p>
+    </div>
+  </section>
+
+  <!-- 18 历史注记 -->
+  <section class="page">
+    <div class="kicker">致读者 · 历史注记</div>
+    <h2>故事之外的真实</h2>
+    <div class="scene">
+      <p>本故事主线与数字依据拉瓦锡的公开论文与实验笔记：1772 年密封备忘录、1774 年锡的密闭煅烧、1774–75 年汞的十二天实验、1777 年燃烧学说、1789 年《化学基础论》。场景衔接经过文学处理，人物对白为重构，不冒称逐字实录。</p>
+      <p>补充史实：氧的独立分离应记舍勒与普利斯特里之功；普利斯特里终身维护燃素说，他的实验数据同样扎实——科学的裁判是证据而非立场。1794 年，拉瓦锡因税务官身份死于大革命的断头台；一年半后其名誉获平反。</p>
+      <p>题目中的"最佳答案"针对给定证据与当前任务，不表示真实探索只有一条道路。</p>
+    </div>
+  </section>
+
+  <!-- 19 结算 -->
+  <section class="page">
+    <div class="kicker">结算</div>
+    <h2>你的成绩</h2>
+    <div class="panel" style="text-align:center;">
+      <div class="grade" id="scoreNum">—</div>
+      <p id="scoreVerdict" style="font-size:16px;color:var(--accent);">完成 6 道推理后，这里将显示你的百分制成绩。</p>
+    </div>
+    <table class="score" id="scoreTable">
+      <tr><th>题号</th><th>结果</th><th>得分率</th></tr>
+      <tr><td colspan="3" id="scoreRows">暂无作答记录</td></tr>
+    </table>
+    <div class="panel">
+      <p id="reviewNote"><strong>值得回看的推理：</strong>完成全部题目后，将列出你纠错次数较多的问题，建议重读对应页。</p>
+    </div>
+  </section>
+
+  <!-- 20 留言 -->
+  <section class="page">
+    <div class="kicker">社区 · 自愿参与</div>
+    <h2>留下你的笔记与评论</h2>
+    $('postBtn').onclick = async () => {
+  const text = $('comment').value.trim();
+  if (!text) return;
+  if (!supabaseClient) {
+    alert('数据库连接中，请稍后再试');
+    return;
+  }
+
+  const nick = $('nick').value.trim() || '匿名调查员';
+  const scoreText = $('scoreNum').textContent;
+  // 从 "85 分" 中提取数字
+  const score = parseInt(scoreText) || 0;
+
+  $('postBtn').disabled = true;
+  $('postBtn').textContent = '提交中...';
+
+  const { error } = await supabaseClient
+    .from('scores')
+    .insert({ player_name: nick, score: score, comment: text });
+
+  if (error) {
+    console.error('提交失败:', error);
+    alert('提交失败，请检查网络后重试');
+    $('postBtn').disabled = false;
+    $('postBtn').textContent = '保存留言（仅本机）';
+  } else {
+    $('comment').value = '';
+    $('postBtn').textContent = '已提交 ✓';
+    // 同时保留本机保存作为备份
+    saveLocalMessage(nick, text);
+    // 刷新排行榜显示
+    loadLeaderboard();
+    setTimeout(() => {
+      $('postBtn').disabled = false;
+      $('postBtn').textContent = '保存留言（仅本机）';
+    }, 2000);
+  }
+};
+
+// 保留原有的本机保存逻辑（作为离线备份）
+function saveLocalMessage(nick, text) {
+  const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  state.msgs.unshift({ nick: esc(nick), text: esc(text), t: new Date().toLocaleString('zh-CN') });
+  save();
+  renderMsgs();
+}
+async function loadLeaderboard() {
+  if (!supabaseClient) return;
+  const { data, error } = await supabaseClient
+    .from('scores')
+    .select('player_name, score, comment, created_at')
+    .order('score', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error || !data) return;
+
+  const wall = $('msgWall');
+  if (!data.length) return;
+
+  wall.innerHTML = data.map((row, i) => {
+    const esc = s => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+    return `<div class="msg">
+      <b>${medal} ${esc(row.player_name)}</b> 
+      <span style="color:var(--gold);font-weight:bold;">${row.score} 分</span>
+      <span class="t">${new Date(row.created_at).toLocaleString('zh-CN')}</span>
+      <br>${esc(row.comment || '')}
+    </div>`;
+  }).join('');
+}
+
+  <!-- 21 线索本 -->
+  <section class="page">
+    <div class="kicker">调查笔记</div>
+    <h2>线索本</h2>
+    <div class="panel" id="cluePanel"><p style="color:#8a7a55;">尚未收集线索——答对问题后，关键追问与结论会收入这里。</p></div>
+    <div class="panel"><p>线索本支持导出：<button class="btn ghost" id="exportBtn">📋 复制调查笔记</button> <span id="copyMsg" style="font-size:13px;color:var(--good);"></span></p></div>
+  </section>
+
+  <!-- 22 尾声 -->
+  <section class="page">
+    <div class="kicker">终章</div>
+    <h2>火焰熄灭之后</h2>
+    <div class="art">🌄⚖️</div>
+    <div class="scene">
+      <p>燃素退场之后，化学并没有结束：道尔顿的原子、门捷列夫的周期表、居里夫人的镭，都站在同一台天平投下的影子里。</p>
+      <p>下一次当你看到火苗，请想起那个多问了一句的人：<strong>多出来的重量，是从哪里来的？</strong></p>
+      <p style="text-align:center;margin-top:8px;"><strong>—— 全篇完 ——</strong></p>
+    </div>
+  </section>
+
+  <!-- 23 来源 -->
+  <section class="page">
+    <div class="kicker">附录</div>
+    <h2>来源与适用范围</h2>
+    <div class="scene">
+      <p>主要史实来源：拉瓦锡《化学基础论》（1789）及实验笔记；普利斯特里《关于不同类型空气的实验与观察》；科学史通说（化学革命）。</p>
+      <p>教学简化说明：空气中氧约占五分之一为近似值（实测约 20.95%）；"汞灰"即氧化汞（HgO）；密闭锡实验中瓶内压力与温度效应已按教学需要简化。</p>
+      <p>本页为静态单机版：无登录、无联网，进度、成绩与留言仅保存在当前浏览器；清除浏览器数据将清除本机记录。</p>
+    </div>
+  </section>
+
+  <!-- 24 再玩 -->
+  <section class="page">
+    <div class="kicker">书架</div>
+    <h2>继续探索</h2>
+    <div class="cols">
+      <div class="mini"><div class="big">🐎</div><p><strong>全城最会算数的马</strong><br>心理学 · 设计对照</p></div>
+      <div class="mini"><div class="big">🌫️</div><p><strong>空气里多出来的一点重量</strong><br>化学 · 追查异常（氩的发现）</p></div>
+      <div class="mini"><div class="big">🏺</div><p><strong>永恒的尤里卡</strong><br>物理 · 浮力与体积的置换</p></div>
+    </div>
+    <div class="scene">
+      <p>本关与上述故事同属"迷雾中的探险"式训练：先看清证据，再检验解释，最后接起证据链。建议下一个挑战：<strong>空气里多出来的一点重量</strong>——同样从称量异常出发，难度再进一级。</p>
+      <p style="text-align:center;"><button class="btn ghost" id="restartBtn">↺ 重新开始本关（清空成绩与线索）</button></p>
+    </div>
+  </section>
+
+  <!-- 25 封底 -->
+  <section class="page">
+    <div class="kicker">封底</div>
+    <h2>天平上的火焰</h2>
+    <div class="art">🔥⚖️📜</div>
+    <div class="scene">
+      <p>25 页 · 6 处推理 · 一场由称量引发的革命。</p>
+      <p>感谢你走完这条证据链。愿你也有一台不肯含糊的天平——以及一个不放过任何"多出来的重量"的好奇心。</p>
+      <p class="caption">天平上的火焰 · 科学推理互动故事 · 静态单机版</p>
+    </div>
+  </section>
+
+  <div class="nav">
+    <button class="btn ghost" id="prevBtn">← 上一页</button>
+    <span style="font-size:13px;color:#8a7a55;" id="hint">阅读后点击继续</span>
+    <button class="btn" id="nextBtn">下一页 →</button>
+  </div>
+  <div class="foot">阅读速度不计分 · 答错可重答 · 使用提示得分降为 30% · 进度与成绩仅保存于本机</div>
+</div>
+
+<script>
+const pages=[...document.querySelectorAll('.page')];
+const TOTAL=pages.length;
+const KEY='lavoisier-game-v1';
+let state=JSON.parse(localStorage.getItem(KEY)||'null')||{page:0,answers:{},clues:[],msgs:[]};
+let cur=Math.min(state.page||0,TOTAL-1);
+const $=id=>document.getElementById(id);
+
+function save(){state.page=cur;localStorage.setItem(KEY,JSON.stringify(state));$('saveNote').textContent='已自动保存 ✓';setTimeout(()=>$('saveNote').textContent='进度保存在本机浏览器',1500);}
+
+function render(){
+  pages.forEach((p,i)=>p.classList.toggle('active',i===cur));
+  $('pageNo').textContent=`第 ${cur+1} / ${TOTAL} 页`;
+  $('bar').style.width=((cur+1)/TOTAL*100)+'%';
+  $('prevBtn').disabled=cur===0;
+  $('nextBtn').disabled=cur===TOTAL-1;
+  $('nextBtn').textContent=cur===TOTAL-1?'已读完':'下一页 →';
+  const quiz=pages[cur].querySelector('.quiz');
+  $('hint').textContent=quiz?'做出你的选择，然后继续':'阅读后点击继续';
+  if(cur===18)renderScore();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$('prevBtn').onclick=()=>{if(cur>0){cur--;save();render();}};
+$('nextBtn').onclick=()=>{if(cur<TOTAL-1){cur++;save();render();}};
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight')$('nextBtn').click();
+  if(e.key==='ArrowLeft')$('prevBtn').click();
+});
+
+const WRONG_NOTES={
+  a:'再想想：这个选项回避了"来源"问题，或放弃了定量的裁判。',
+  b:'再想想：这更像在为旧说法打补丁，而不是让证据说话。',
+  c:'再想想：仅凭权威、颜色或一次失误，都不足以判定理论的去留。',
+  d:'再想想：回到天平——哪里还藏着没有被称量的东西？'
+};
+
+document.querySelectorAll('.quiz').forEach(quiz=>{
+  const q=quiz.dataset.q, answer=quiz.dataset.answer, clueText=quiz.dataset.clue;
+  const opts=[...quiz.querySelectorAll('.opt')];
+  const explain=quiz.querySelector('.explain'), clueBox=quiz.querySelector('.clue');
+  const wrongNote=quiz.querySelector('.wrongNote');
+  const hintBtn=quiz.querySelector('.hintBtn'), hintText=quiz.querySelector('.hintText');
+  const rec=state.answers[q]||{tries:0,usedHint:false,done:false};
+  state.answers[q]=rec;
+
+  hintBtn.onclick=()=>{rec.usedHint=true;hintText.classList.add('show');hintBtn.disabled=true;save();};
+  if(rec.usedHint){hintText.classList.add('show');hintBtn.disabled=true;}
+
+  function lockCorrect(){
+    opts.forEach(x=>{x.disabled=true;if(x.dataset.k===answer)x.classList.add('correct');});
+    explain.classList.add('show');clueBox.classList.add('show');
+    if(!state.clues.includes(clueText)){state.clues.push(clueText);}
+    renderClues();save();
+  }
+  if(rec.done){lockCorrect();return;}
+
+  opts.forEach(o=>o.onclick=()=>{
+    rec.tries++;
+    if(o.dataset.k===answer){
+      rec.done=true;rec.score=rec.usedHint?30:(rec.tries===1?100:60);
+      lockCorrect();
+    }else{
+      o.classList.add('wrong');
+      wrongNote.textContent='✗ 所选选项不成立——'+(WRONG_NOTES[o.dataset.k]||WRONG_NOTES.a)+' 请重新作答。';
+      wrongNote.classList.add('show');
+      setTimeout(()=>{o.classList.remove('wrong');},700);
+      save();
+    }
+  });
+});
+
+function renderClues(){
+  const panel=$('cluePanel');
+  if(!state.clues.length)return;
+  panel.innerHTML='<ol style="padding-left:22px;font-size:15px;line-height:2;">'+state.clues.map(c=>`<li>${c}</li>`).join('')+'</ol>';
+}
+renderClues();
+
+function renderScore(){
+  const entries=Object.entries(state.answers).filter(([k,v])=>v.done);
+  const n=entries.length;
+  if(n===0)return;
+  const avg=Math.round(entries.reduce((s,[,v])=>s+v.score,0)/6);
+  $('scoreNum').textContent=avg+' 分';
+  $('scoreVerdict').textContent=
+    avg>=90?'杰出的审判官——证据链在你手中严丝合缝。':
+    avg>=70?'可靠的调查员——多数推理首次命中，个别账目值得重核。':
+    avg>=50?'正在成长的实验者——建议回看解析，重走称量的每一步。':
+    '别灰心——拉瓦锡也花了两年才做完汞实验。重读故事，再来一次。';
+  const rows=entries.sort((a,b)=>a[0]-b[0]).map(([q,v])=>{
+    const label=v.score===100?'首次独立答对':(v.score===60?'纠错后答对':'借助提示掌握');
+    return `<tr><td>第 ${q} 题</td><td>${label}</td><td>${v.score}%</td></tr>`;
+  }).join('');
+  $('scoreRows')?.remove();
+  $('scoreTable').insertAdjacentHTML('beforeend',rows+`<tr><th>平均（按 6 题计）</th><th>—</th><th>${avg} 分</th></tr>`);
+  const hard=entries.filter(([,v])=>v.score<100).map(([q])=>'第 '+q+' 题');
+  $('reviewNote').innerHTML='<strong>值得回看的推理：</strong>'+(hard.length?('你在 '+hard.join('、')+' 经历了纠错或提示，建议重读对应页与解析。'):'六题全部首次独立答对，无短板。可挑战"空气里多出来的一点重量"。');
+}
+
+// 留言（仅本机）
+function renderMsgs(){
+  const wall=$('msgWall');
+  if(!state.msgs.length){wall.innerHTML='<p style="color:#8a7a55;">暂无留言。</p>';return;}
+  wall.innerHTML=state.msgs.map(m=>`<div class="msg"><b>${m.nick}</b> <span class="t">${m.t}</span><br>${m.text}</div>`).join('');
+}
+$('postBtn').onclick=()=>{
+  const text=$('comment').value.trim();if(!text)return;
+  const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  state.msgs.unshift({nick:esc($('nick').value.trim()||'匿名调查员'),text:esc(text),t:new Date().toLocaleString('zh-CN')});
+  $('comment').value='';save();renderMsgs();
+};
+renderMsgs();
+
+$('exportBtn').onclick=()=>{
+  const txt='【天平上的火焰 · 调查笔记】\n'+state.clues.map((c,i)=>`${i+1}. ${c}`).join('\n')+
+    '\n成绩：'+($('scoreNum').textContent||'未完成');
+  navigator.clipboard?.writeText(txt).then(()=>$('copyMsg').textContent='已复制 ✓').catch(()=>$('copyMsg').textContent='复制失败，请手动选择文本');
+};
+
+$('restartBtn').onclick=()=>{
+  if(confirm('确定清空本关的成绩、线索与留言，重新开始吗？')){
+    localStorage.removeItem(KEY);
+    state={page:0,answers:{},clues:[],msgs:[]};cur=0;location.reload();
+  }
+};
+// 等 supabase 加载完成后拉取排行榜
+const checkSupabase = setInterval(() => {
+  if (supabaseClient) {
+    clearInterval(checkSupabase);
+    loadLeaderboard();
+  }
+}, 100);
+
+render();save();
+</script>
+</body>
+</html>
