@@ -5,6 +5,12 @@ const SUPABASE_URL = 'https://yaomlceobxqdagnxjpvq.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_7hVj3V1oB7_h2AOlq_NODw_sbu51fPP';
 let supabaseClient = null;
 
+const supabaseScript = document.createElement('script');
+supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+supabaseScript.onload = () => {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+};
+document.head.appendChild(supabaseScript);
 
 <!DOCTYPE html>
 <html lang="zh-CN">
